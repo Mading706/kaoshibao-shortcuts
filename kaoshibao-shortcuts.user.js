@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         考试宝快捷键 (Kaoshibao Shortcuts)
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      2.0
 // @description  考试宝刷题辅助：功能可独立开关 (音效/视觉反馈/箭头翻页/VIP破解/净化/智能回车)，支持A-Z自定义按键，支持自定义音效
 // @match        *://*.kaoshibao.com/*
 // @grant        none
@@ -14,37 +14,19 @@
     // ==========================================
     // 1. 配置管理 & 初始化
     // ==========================================
-
     const generateDefaultKeys = () => {
-        const keys = {
-            submit: 'Enter',
-            prev: 'ArrowLeft',
-            next: 'ArrowRight',
-            forceUnlock: 'v'
-        };
+        const keys = { submit: 'Enter', prev: 'ArrowLeft', next: 'ArrowRight', forceUnlock: 'v' };
         for (let i = 0; i < 26; i++) {
             const char = String.fromCharCode(65 + i);
-            if (i < 5) keys[`op_${char}`] = (i + 1).toString();
-            else keys[`op_${char}`] = '';
+            keys[`op_${char}`] = i < 5 ? (i + 1).toString() : '';
         }
         return keys;
     };
 
     const DEFAULT_CONFIG = {
-        features: {
-            cleanUI: true,        // 界面净化
-            vipUnlock: true,      // VIP 破解
-            autoClose: true,      // 自动关弹窗
-            smartEnter: true,     // 智能回车
-            scriptNav: true,      // 脚本翻页
-            audioFeedback: false, // [修改] 默认关闭
-            keyVisual: false      // [修改] 默认关闭
-        },
+        features: { cleanUI: true, vipUnlock: true, autoClose: true, smartEnter: true, scriptNav: true, audioFeedback: false, keyVisual: false },
         keys: generateDefaultKeys(),
-        audioCustom: {
-            correct: '',
-            wrong: ''
-        },
+        audioCustom: { correct: '', wrong: '' },
         uiPos: { top: '', left: '' }
     };
 
@@ -52,75 +34,58 @@
     userConfig.features = { ...DEFAULT_CONFIG.features, ...userConfig.features };
     userConfig.keys = { ...DEFAULT_CONFIG.keys, ...userConfig.keys };
     userConfig.audioCustom = { ...DEFAULT_CONFIG.audioCustom, ...userConfig.audioCustom };
-    if (!userConfig.uiPos) userConfig.uiPos = { top: '', left: '' };
+    userConfig.uiPos = userConfig.uiPos || { top: '', left: '' };
 
-    function saveConfig() {
+    const saveConfig = () => {
         localStorage.setItem('ksb_script_config', JSON.stringify(userConfig));
-        if (confirm('设置已保存。是否立即刷新页面以确保所有更改生效？')) {
-            location.reload();
-        }
-    }
+        if (confirm('设置已保存。是否立即刷新页面以确保所有更改生效？')) location.reload();
+    };
 
-    function resetConfig() {
-        if(confirm('确定要恢复默认设置吗？')) {
+    const resetConfig = () => {
+        if (confirm('确定要恢复默认设置吗？')) {
             localStorage.removeItem('ksb_script_config');
             location.reload();
         }
-    }
+    };
 
     // ==========================================
     // 2. 核心功能模块
     // ==========================================
-
-    // --- 模块：音效系统 ---
+    // --- 音效系统 ---
     const defaultAudioUrls = {
         correct: 'https://img.tukuppt.com/newpreview_music/01/66/41/63c0e76601774734.mp3',
         wrong: 'https://img.tukuppt.com/newpreview_music/09/00/60/5c89396f017e881994.mp3'
     };
-
-    const audioCtx = {
-        correct: new Audio(),
-        wrong: new Audio()
-    };
+    const audioCtx = { correct: new Audio(), wrong: new Audio() };
 
     function updateAudioSource() {
         audioCtx.correct.src = userConfig.audioCustom.correct || defaultAudioUrls.correct;
         audioCtx.wrong.src = userConfig.audioCustom.wrong || defaultAudioUrls.wrong;
-        audioCtx.correct.load();
-        audioCtx.wrong.load();
     }
     updateAudioSource();
 
     function checkAnswerAndPlaySound() {
         if (!userConfig.features.audioFeedback) return;
-
         const wrongIcon = document.querySelector('img[src*="FkA2c88PrD8eR23UlL1ejyer5axl"]');
         const correctIcon = document.querySelector('img[src*="FjteOgY4lCD4RSWPILZpiI0tHLIt"]');
-
-        if (correctIcon && correctIcon.offsetParent !== null) {
+        if (correctIcon?.offsetParent) {
             audioCtx.correct.currentTime = 0;
-            audioCtx.correct.play().catch(e => console.error('Audio error:', e));
-        } else if (wrongIcon && wrongIcon.offsetParent !== null) {
+            audioCtx.correct.play().catch(console.error);
+        } else if (wrongIcon?.offsetParent) {
             audioCtx.wrong.currentTime = 0;
-            audioCtx.wrong.play().catch(e => console.error('Audio error:', e));
+            audioCtx.wrong.play().catch(console.error);
         }
     }
 
-    // --- 模块：按键视觉反馈 ---
+    // --- 按键视觉反馈 ---
     function showKeyIndicator(text) {
         if (!userConfig.features.keyVisual) return;
-        const old = document.getElementById('ksb-key-indicator');
-        if (old) old.remove();
-
-        const div = document.createElement('div');
+        let div = document.getElementById('ksb-key-indicator');
+        if (div) div.remove();
+        div = document.createElement('div');
         div.id = 'ksb-key-indicator';
         div.textContent = text;
-        div.style.cssText = `
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 80px; font-weight: bold; color: rgba(64, 158, 255, 0.8);
-            z-index: 99999; pointer-events: none; text-shadow: 0 0 20px rgba(255,255,255,0.8);
-            opacity: 0; transition: all 0.4s ease;
-        `;
+        div.style.cssText = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; font-weight: bold; color: rgba(64, 158, 255, 0.8); z-index: 99999; pointer-events: none; text-shadow: 0 0 20px rgba(255,255,255,0.8); opacity: 0; transition: all 0.4s ease;`;
         document.body.appendChild(div);
         requestAnimationFrame(() => {
             div.style.opacity = '1';
@@ -133,136 +98,137 @@
         }, 300);
     }
 
-    // --- 模块：界面净化 ---
+    // --- 界面净化 (CSS) ---
     function applyCleanUI() {
         if (!userConfig.features.cleanUI) return;
-        if (document.getElementById('ksb-clean-style')) return;
-
-        const css = `
-            .header, .new-footer, .vip-quanyi, .vip-tips, .right-float-window, .advertisement, .ad-box { display: none !important; }
-            .app-main { padding-top: 20px !important; }
-            .answer-analysis.option { display: block !important; }
-            .answer-box-detail > div:not(.answer-analysis):not(.option) { display: none !important; }
-            .deepseek-row .title { display: none !important; }
-        `;
-        const style = document.createElement('style');
-        style.id = 'ksb-clean-style';
-        style.textContent = css;
-        document.head.appendChild(style);
-    }
-
-    // --- 模块：VIP 破解 ---
-    function unlockVIP() {
-        if (!userConfig.features.vipUnlock) return;
-        const hiddenEls = document.querySelectorAll('.answer-analysis-row.hide-height');
-        hiddenEls.forEach(el => el.classList.remove('hide-height'));
-        const ans = document.querySelector(".answer-analysis");
-        if (ans) {
-            ans.className = "option";
-            const lockedBtn = document.querySelector(".answer-analysis-row button");
-            if (lockedBtn) lockedBtn.remove();
+        if (!document.getElementById('ksb-clean-style')) {
+            const style = document.createElement('style');
+            style.id = 'ksb-clean-style';
+            style.textContent = `
+                .header, .new-footer, .right-float-window, .advertisement, .ad-box, .vip-quanyi, .vip-tips, .breadcrumb, .lock-icon, [class*="lock"], [class*="vip-mask"], .hide-ai-analysis, .hide-ai-analysis-text, .check-all-btn-row { display: none !important; }
+                .app-main { padding-top: 20px !important; }
+                .answer-analysis, .answer-analysis-row, .answer-detail, .deepseek-row .content, .answer-box-detail p, .answer-box-detail span { color: #222 !important; opacity: 1 !important; filter: none !important; text-shadow: none !important; -webkit-text-fill-color: #222 !important; -webkit-line-clamp: 999 !important; line-clamp: 999 !important; max-height: none !important; height: auto !important; overflow: visible !important; white-space: pre-wrap !important; text-overflow: clip !important; user-select: text !important; }
+                .answer-analysis-row, .answer-analysis { -webkit-box-orient: vertical !important; }
+                [class*="mask"], [class*="blur"] { display: none !important; pointer-events: none !important; }
+                .hide-height { height: auto !important; max-height: none !important; overflow: visible !important; }
+            `;
+            document.head.appendChild(style);
         }
     }
 
-    // --- 模块：自动关弹窗 ---
-    function checkDialog() {
-        if (!userConfig.features.autoClose) return;
-        const okBtn = document.querySelector(".el-message-box__btns .el-button--primary");
-        if (okBtn) okBtn.click();
+    // --- VIP 破解 (DOM操作) ---
+    function unlockVIP() {
+        if (!userConfig.features.vipUnlock) return;
+
+        // 1. 常规移除
+        ['.vip-quanyi', '.vip-tips', '.vip-mask', '.open-vip-btn', '[class*="pay"]', '.hide-ai-analysis', '.hide-ai-analysis-text', '.check-all-btn-row'].forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => el.remove());
+        });
+
+        // 2. 精准移除“开通VIP”
+        const vipNodes = document.evaluate("//*[contains(text(), '开通VIP查看完整解析')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        for (let i = 0; i < vipNodes.snapshotLength; i++) {
+            let node = vipNodes.snapshotItem(i);
+            let target = node.closest('button') || node.closest('.el-button') || node.closest('div[class*="vip"]') || node.closest('.check-all-btn-row') || node.parentElement;
+            if (target && !target.classList.contains('app-main') && !target.classList.contains('answer-analysis')) target.remove();
+            else node.remove();
+        }
+
+        // 3. 移除“深度解题”
+        const deepResult = document.evaluate("//*[contains(text(), '深度解题')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        for (let i = 0; i < deepResult.snapshotLength; i++) {
+            let el = deepResult.snapshotItem(i);
+            let wrapper = el.closest('.deepseek-row') || el.closest('.answer-box-detail > div') || el.parentElement;
+            if (wrapper && !wrapper.classList.contains('app-main')) wrapper.remove();
+        }
+
+        // 4. 清理残留图标
+        document.querySelectorAll('i, img, svg').forEach(icon => {
+            const parentText = icon.parentElement?.innerText || '';
+            if (parentText.includes('VIP') || parentText.includes('解析')) {
+                const style = window.getComputedStyle(icon);
+                if (style.position === 'absolute' || style.position === 'fixed') icon.remove();
+            }
+        });
     }
 
-    // --- 辅助：DOM 操作 ---
-    function clickByXPath(xpath) {
-        const result = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-        for (let i = 0; i < result.snapshotLength; i++) {
-            let el = result.snapshotItem(i);
+    // --- 自动弹窗处理 ---
+    function checkDialog() {
+        if (userConfig.features.autoClose) document.querySelector(".el-message-box__btns .el-button--primary")?.click();
+    }
+
+    // --- DOM 辅助 ---
+    const clickByXPath = (xpath) => {
+        const res = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        for (let i = 0; i < res.snapshotLength; i++) {
+            let el = res.snapshotItem(i);
             if (el.offsetParent !== null) { el.click(); return true; }
         }
         return false;
-    }
-    function clickText(text) { return clickByXPath(`//*[contains(text(), '${text}')]`); }
-    function selectOption(char) {
-        if (clickByXPath(`//*[normalize-space(text())='${char}']`)) return;
-        clickByXPath(`//*[starts-with(normalize-space(text()), '${char} ') or starts-with(normalize-space(text()), '${char}.')]`);
-    }
+    };
+    const clickText = (text) => clickByXPath(`//*[contains(text(), '${text}')]`);
+    const selectOption = (char) => {
+        if (!clickByXPath(`//*[normalize-space(text())='${char}']`)) {
+            clickByXPath(`//*[starts-with(normalize-space(text()), '${char} ') or starts-with(normalize-space(text()), '${char}.')]`);
+        }
+    };
 
     // ==========================================
     // 3. 全局监听
     // ==========================================
-
+    let observerTimer = null;
     const observer = new MutationObserver((mutations) => {
-        unlockVIP();
+        if (mutations.some(m => m.addedNodes.length > 0)) {
+            if (observerTimer) clearTimeout(observerTimer);
+            observerTimer = setTimeout(() => {
+                unlockVIP();
+                applyCleanUI();
+            }, 100); // 防抖，避免卡顿
+        }
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
     document.addEventListener('click', (e) => {
-        if (userConfig.features.audioFeedback) {
-            if (e.target.closest('.option') || e.target.textContent.includes('提交')) {
-                setTimeout(checkAnswerAndPlaySound, 200);
-                setTimeout(checkAnswerAndPlaySound, 600);
-            }
+        if (userConfig.features.audioFeedback && (e.target.closest('.option') || e.target.textContent.includes('提交'))) {
+            setTimeout(checkAnswerAndPlaySound, 200);
+            setTimeout(checkAnswerAndPlaySound, 600);
         }
     });
 
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+
         const k = e.key;
         const map = userConfig.keys;
         let isHandled = false;
 
+        // 选项快捷键
         for (let i = 0; i < 26; i++) {
             const char = String.fromCharCode(65 + i);
-            if (map[`op_${char}`] === k) {
-                selectOption(char);
-                isHandled = true;
-                break;
-            }
+            if (map[`op_${char}`] === k) { selectOption(char); isHandled = true; break; }
         }
 
         if (!isHandled) {
             if (k === map.submit) {
                 isHandled = true;
-                if (userConfig.features.smartEnter) {
-                    if (clickText('提交答案')) setTimeout(unlockVIP, 100);
-                    else if (clickText('下一题')) setTimeout(applyCleanUI, 200);
-                    else clickText('交卷');
-                } else {
-                    clickText('提交答案');
-                }
-            }
-            else if (k === map.prev) {
-                if (userConfig.features.scriptNav) {
-                    isHandled = true;
-                    showKeyIndicator('←');
-                    clickText('上一题');
-                }
-            }
-            else if (k === map.next) {
-                if (userConfig.features.scriptNav) {
-                    isHandled = true;
-                    showKeyIndicator('→');
-                    clickText('下一题');
-                    setTimeout(applyCleanUI, 200);
-                }
-            }
-            else if (k === map.forceUnlock) {
-                isHandled = true;
-                unlockVIP();
-                showKeyIndicator('🔓');
+                if (!userConfig.features.smartEnter) clickText('提交答案');
+                else if (clickText('提交答案')) setTimeout(() => { unlockVIP(); setTimeout(unlockVIP, 150); }, 50);
+                else if (!clickText('下一题')) clickText('交卷');
+            } else if (k === map.prev && userConfig.features.scriptNav) {
+                isHandled = true; showKeyIndicator('←'); clickText('上一题');
+            } else if (k === map.next && userConfig.features.scriptNav) {
+                isHandled = true; showKeyIndicator('→'); clickText('下一题');
+            } else if (k === map.forceUnlock) {
+                isHandled = true; unlockVIP(); applyCleanUI(); showKeyIndicator('🔓');
             }
         }
 
-        if (isHandled) {
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            e.preventDefault();
-        }
+        if (isHandled) { e.stopPropagation(); e.stopImmediatePropagation(); e.preventDefault(); }
     }, true);
 
     // ==========================================
     // 4. 设置面板 UI
     // ==========================================
-
     function createSettingsUI() {
         if (document.getElementById('ksb-panel')) return;
 
@@ -277,8 +243,9 @@
             .ksb-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 6px 10px; border-radius: 4px; transition: background 0.2s; }
             .ksb-row:hover { background: #f9f9f9; }
             .ksb-checkbox { transform: scale(1.3); cursor: pointer; accent-color: #409EFF; }
-            .ksb-input { width: 100px; padding: 6px; border: 1px solid #dcdfe6; border-radius: 4px; text-align: center; font-family: monospace; font-weight: bold; outline: none; }
-            .ksb-input-long { width: 250px; padding: 6px; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 12px; outline: none; }
+            .ksb-input, .ksb-input-long { padding: 6px; border: 1px solid #dcdfe6; border-radius: 4px; outline: none; }
+            .ksb-input { width: 100px; text-align: center; font-family: monospace; font-weight: bold; }
+            .ksb-input-long { width: 250px; font-size: 12px; }
             .ksb-input:focus, .ksb-input-long:focus { border-color: #409EFF; box-shadow: 0 0 0 2px rgba(64,158,255,0.2); }
             .ksb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
             .ksb-btns { margin-top: 25px; text-align: right; border-top: 1px solid #eee; padding-top: 15px; }
@@ -289,159 +256,59 @@
         `;
         document.head.appendChild(style);
 
-        const btn = document.createElement('div');
-        btn.id = 'ksb-btn'; btn.innerHTML = '⚙️'; btn.title = '设置';
-
-        if (userConfig.uiPos.top) {
-            btn.style.bottom = 'auto'; btn.style.right = 'auto';
-            btn.style.top = userConfig.uiPos.top; btn.style.left = userConfig.uiPos.left;
-        }
+        const btn = document.createElement('div'); btn.id = 'ksb-btn'; btn.innerHTML = '⚙️'; btn.title = '设置';
+        if (userConfig.uiPos.top) Object.assign(btn.style, { bottom: 'auto', right: 'auto', top: userConfig.uiPos.top, left: userConfig.uiPos.left });
 
         let isDragging = false, startX, startY, initLeft, initTop;
-        btn.addEventListener('mousedown', (e) => {
+        btn.onmousedown = (e) => {
             isDragging = false; startX = e.clientX; startY = e.clientY;
             const rect = btn.getBoundingClientRect(); initLeft = rect.left; initTop = rect.top;
-            const onMove = (e) => {
-                if (!isDragging && (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5)) isDragging = true;
-                if (isDragging) {
-                    btn.style.bottom = 'auto'; btn.style.right = 'auto';
-                    btn.style.left = (initLeft + e.clientX - startX) + 'px';
-                    btn.style.top = (initTop + e.clientY - startY) + 'px';
-                }
+            const onMove = (mv) => {
+                if (!isDragging && (Math.abs(mv.clientX - startX) > 5 || Math.abs(mv.clientY - startY) > 5)) isDragging = true;
+                if (isDragging) Object.assign(btn.style, { bottom: 'auto', right: 'auto', left: `${initLeft + mv.clientX - startX}px`, top: `${initTop + mv.clientY - startY}px` });
             };
             const onUp = () => {
                 document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
-                if (isDragging) {
-                    userConfig.uiPos.top = btn.style.top; userConfig.uiPos.left = btn.style.left;
-                    localStorage.setItem('ksb_script_config', JSON.stringify(userConfig));
-                }
+                if (isDragging) { userConfig.uiPos = { top: btn.style.top, left: btn.style.left }; saveConfig(); }
             };
             document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-        });
+        };
 
         const mask = document.createElement('div'); mask.className = 'ksb-mask';
         const panel = document.createElement('div'); panel.id = 'ksb-panel';
+        btn.onclick = () => { if (!isDragging) { panel.style.display = 'block'; mask.style.display = 'block'; } };
 
-        btn.addEventListener('click', () => { if (!isDragging) { panel.style.display = 'block'; mask.style.display = 'block'; } });
+        const renderSwitch = (k, l) => `<div class="ksb-row"><label for="kf-${k}" style="flex:1;cursor:pointer;">${l}</label><input type="checkbox" id="kf-${k}" class="ksb-checkbox" ${userConfig.features[k]?'checked':''}></div>`;
+        const renderKey = (k, n) => `<div class="ksb-row"><label>${n}</label><input type="text" class="ksb-input" id="kk-${k}" value="${userConfig.keys[k]}" readonly></div>`;
 
-        // --- 渲染 UI 内容 ---
-        let html = `<div class="ksb-title">考试宝助手 v1.2 设置</div>`;
+        let html = `<div class="ksb-title">考试宝助手 v2.0 设置</div><div class="ksb-sec-title">核心功能</div>${renderSwitch('smartEnter', '🧠 智能回车')}${renderSwitch('vipUnlock', '🔓 强力VIP破解')}${renderSwitch('cleanUI', '🧹 界面净化')}${renderSwitch('autoClose', '🚫 自动关弹窗')}${renderSwitch('scriptNav', '🎮 脚本翻页')}<div class="ksb-sec-title">增强体验</div>${renderSwitch('audioFeedback', '🎵 答题音效')}`;
+        html += `<div id="ksb-audio-custom-wrapper" style="display:${userConfig.features.audioFeedback?'block':'none'};"><div class="ksb-row ksb-sub-row"><label>正确音效(URL)</label><input class="ksb-input-long" id="kac-correct" value="${userConfig.audioCustom.correct}"></div><div class="ksb-row ksb-sub-row"><label>错误音效(URL)</label><input class="ksb-input-long" id="kac-wrong" value="${userConfig.audioCustom.wrong}"></div></div>${renderSwitch('keyVisual', '👀 按键视觉反馈')}`;
+        html += `<div class="ksb-sec-title">按键映射</div><div class="ksb-grid">${renderKey('submit', '提交/确认')}${renderKey('prev', '上一题')}${renderKey('next', '下一题')}${renderKey('forceUnlock', '强制破解')}</div><div class="ksb-sec-title">选项快捷键 (A-Z)</div><div class="ksb-grid">`;
+        for (let i=0; i<26; i++) html += renderKey(`op_${String.fromCharCode(65+i)}`, `选项 ${String.fromCharCode(65+i)}`);
+        html += `</div><div class="ksb-btns"><button class="ksb-btn" id="ksb-reset" style="float:left;background:#f56c6c;color:white;">重置</button><button class="ksb-btn ksb-close">取消</button><button class="ksb-btn ksb-save">保存配置</button></div>`;
 
-        const renderSwitch = (key, label) => `
-            <div class="ksb-row">
-                <label for="kf-${key}" style="flex:1;cursor:pointer;">${label}</label>
-                <input type="checkbox" id="kf-${key}" class="ksb-checkbox" ${userConfig.features[key] ? 'checked' : ''}>
-            </div>`;
-
-        // 1. 核心功能
-        html += `<div class="ksb-sec-title">核心功能</div>`;
-        html += renderSwitch('smartEnter', '🧠 智能回车 (提交 -> 破解 -> 下一题)');
-        html += renderSwitch('vipUnlock', '🔓 自动破解 VIP 解析');
-        html += renderSwitch('cleanUI', '🧹 界面净化 (去广告)');
-        html += renderSwitch('autoClose', '🚫 自动关闭弹窗');
-        html += renderSwitch('scriptNav', '🎮 启用脚本翻页 (接管方向键)');
-
-        // 2. 增强体验
-        html += `<div class="ksb-sec-title">增强体验</div>`;
-        html += renderSwitch('audioFeedback', '🎵 答题音效 (答对/答错提示音)');
-
-        // 音效配置容器 (默认根据开关状态显示/隐藏)
-        const audioDisplay = userConfig.features.audioFeedback ? 'block' : 'none';
-        html += `
-            <div id="ksb-audio-custom-wrapper" style="display: ${audioDisplay};">
-                <div class="ksb-row ksb-sub-row">
-                    <label>正确音效(URL)</label>
-                    <input type="text" class="ksb-input-long" id="kac-correct" placeholder="留空使用默认" value="${userConfig.audioCustom.correct || ''}">
-                </div>
-                <div class="ksb-row ksb-sub-row">
-                    <label>错误音效(URL)</label>
-                    <input type="text" class="ksb-input-long" id="kac-wrong" placeholder="留空使用默认" value="${userConfig.audioCustom.wrong || ''}">
-                </div>
-            </div>
-        `;
-        html += renderSwitch('keyVisual', '👀 按键视觉反馈 (屏幕中央大图标)');
-
-        // 3. 按键映射
-        html += `<div class="ksb-sec-title">按键映射</div><div class="ksb-grid">`;
-        const renderKey = (key, name) => `
-            <div class="ksb-row">
-                <label>${name}</label>
-                <input type="text" class="ksb-input" id="kk-${key}" value="${userConfig.keys[key]}" readonly>
-            </div>`;
-        html += renderKey('submit', '提交/确认');
-        html += renderKey('prev', '上一题');
-        html += renderKey('next', '下一题');
-        html += renderKey('forceUnlock', '强制破解');
-        html += `</div>`;
-
-        // 4. 选项快捷键 (A-Z)
-        html += `<div class="ksb-sec-title">选项快捷键 (A-Z)</div><div class="ksb-grid">`;
-        for (let i = 0; i < 26; i++) {
-            const char = String.fromCharCode(65 + i);
-            html += renderKey(`op_${char}`, `选项 ${char}`);
-        }
-        html += `</div>`;
-
-        html += `
-            <div class="ksb-btns">
-                <button class="ksb-btn" id="ksb-reset" style="float:left;background:#f56c6c;color:white;">重置</button>
-                <button class="ksb-btn ksb-close">取消</button>
-                <button class="ksb-btn ksb-save">保存配置</button>
-            </div>
-        `;
-
-        panel.innerHTML = html;
-        document.body.append(btn, mask, panel);
+        panel.innerHTML = html; document.body.append(btn, mask, panel);
 
         const close = () => { panel.style.display = 'none'; mask.style.display = 'none'; };
-        mask.onclick = close;
-        panel.querySelector('.ksb-close').onclick = close;
-        panel.querySelector('#ksb-reset').onclick = resetConfig;
+        mask.onclick = close; panel.querySelector('.ksb-close').onclick = close; panel.querySelector('#ksb-reset').onclick = resetConfig;
 
-        // 监听音效开关，折叠/展开详细配置
-        const audioSwitch = document.getElementById('kf-audioFeedback');
-        const audioWrapper = document.getElementById('ksb-audio-custom-wrapper');
-        if (audioSwitch && audioWrapper) {
-            audioSwitch.addEventListener('change', (e) => {
-                audioWrapper.style.display = e.target.checked ? 'block' : 'none';
-            });
-        }
-
+        document.getElementById('kf-audioFeedback')?.addEventListener('change', e => document.getElementById('ksb-audio-custom-wrapper').style.display = e.target.checked ? 'block' : 'none');
         panel.querySelector('.ksb-save').onclick = () => {
-            for (let key in userConfig.features) {
-                const el = document.getElementById(`kf-${key}`);
-                if (el) userConfig.features[key] = el.checked;
-            }
-            // 保存自定义音效链接
-            userConfig.audioCustom.correct = document.getElementById('kac-correct').value.trim();
-            userConfig.audioCustom.wrong = document.getElementById('kac-wrong').value.trim();
-
+            Object.keys(userConfig.features).forEach(k => { const el = document.getElementById(`kf-${k}`); if (el) userConfig.features[k] = el.checked; });
+            userConfig.audioCustom = { correct: document.getElementById('kac-correct').value.trim(), wrong: document.getElementById('kac-wrong').value.trim() };
             saveConfig();
         };
 
-        panel.querySelectorAll('.ksb-input').forEach(input => {
-            input.onfocus = () => { input.style.borderColor = '#409EFF'; input.value = '...'; };
-            input.onblur = () => {
-                input.style.borderColor = '#dcdfe6';
-                const k = input.id.replace('kk-', '');
-                input.value = userConfig.keys[k] || '';
-            };
-            input.onkeydown = (e) => {
+        panel.querySelectorAll('.ksb-input').forEach(inp => {
+            inp.onfocus = () => { inp.style.borderColor = '#409EFF'; inp.value = '...'; };
+            inp.onblur = () => { inp.style.borderColor = '#dcdfe6'; inp.value = userConfig.keys[inp.id.replace('kk-', '')] || ''; };
+            inp.onkeydown = (e) => {
                 e.preventDefault(); e.stopPropagation();
-                let key = e.key === ' ' ? 'Space' : e.key;
-                if (['Backspace','Delete'].includes(key)) key = '';
-                const configKey = input.id.replace('kk-', '');
-                userConfig.keys[configKey] = key;
-                input.value = key;
-                input.blur();
+                let key = ['Backspace','Delete'].includes(e.key) ? '' : (e.key === ' ' ? 'Space' : e.key);
+                userConfig.keys[inp.id.replace('kk-', '')] = key; inp.value = key; inp.blur();
             };
         });
     }
 
-    setTimeout(() => {
-        applyCleanUI();
-        createSettingsUI();
-        setInterval(checkDialog, 1500);
-    }, 500);
-
+    setTimeout(() => { applyCleanUI(); createSettingsUI(); unlockVIP(); setInterval(unlockVIP, 1500); setInterval(checkDialog, 1500); }, 500);
 })();
