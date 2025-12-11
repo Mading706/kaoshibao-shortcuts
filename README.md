@@ -1,7 +1,7 @@
 # ⚡ 考试宝快捷键 (Kaoshibao Shortcuts)
 
 [![Greasy Fork](https://img.shields.io/badge/Install-Greasy_Fork-green?style=flat-square&logo=tampermonkey)](https://greasyfork.org/zh-CN/scripts/558612-%E8%80%83%E8%AF%95%E5%AE%9D%E5%BF%AB%E6%8D%B7%E9%94%AE-kaoshibao-shortcuts)
-[![Version](https://img.shields.io/badge/Version-1.2-blue?style=flat-square)](https://greasyfork.org/zh-CN/scripts/558612)
+[![Version](https://img.shields.io/badge/Version-2.0-blue?style=flat-square)](https://greasyfork.org/zh-CN/scripts/558612)
 [![License](https://img.shields.io/badge/License-MIT-orange?style=flat-square)](LICENSE)
 
 专为 **考试宝 (kaoshibao.com)** 刷题设计的全能辅助脚本。提供全可视化设置面板，支持自定义快捷键、智能回车提交、自动解锁VIP解析、答题音效反馈以及界面净化等功能，助你极速刷题，效率倍增！
@@ -49,6 +49,8 @@
 
 
 ## 📝 更新日志
+### v2.0
+* 优化了代码逻辑。
 
 ### v1.2
 * ✨ 重构设置面板布局，分类更清晰。
