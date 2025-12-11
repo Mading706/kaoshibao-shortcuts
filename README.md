@@ -45,7 +45,8 @@
 
 ## 🖼️ 预览
 
-> <img width="759" height="1157" alt="image" src="https://github.com/user-attachments/assets/a25a86da-2b35-436d-b32c-62d8df0ad48a" />
+<img width="855" height="1165" alt="image" src="https://github.com/user-attachments/assets/5cf74409-3acd-441f-a7e9-53890b28ca24" />
+
 
 
 ## 📝 更新日志
