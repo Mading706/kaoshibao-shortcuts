@@ -200,6 +200,15 @@
     function unlockVIP() {
         if (!userConfig.features.vipUnlock) return;
 
+        document.querySelectorAll('.answer-analysis-row.hide-height').forEach(element => {
+            element.classList.remove('hide-height');
+            if (!element.style) return;
+            element.style.maxHeight = '';
+            element.style.height = '';
+            element.style.overflow = '';
+            element.style.whiteSpace = '';
+        });
+
         // 移除 VIP 相关遮罩和按钮
         const selectorsToRemove = [
             '.vip-quanyi', '.vip-tips', '.vip-mask', '.open-vip-btn',
