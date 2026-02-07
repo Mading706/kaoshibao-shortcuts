@@ -170,10 +170,11 @@
 
             .app-main { padding-top: 20px !important; }
 
-            /* 解锁解析内容样式 */
+            /* 解锁解析内容样式（提升对比度，避免灰字看不清） */
             .answer-analysis, .answer-analysis-row, .answer-detail {
-                color: #222 !important; opacity: 1 !important; filter: none !important;
-                text-shadow: none !important; -webkit-text-fill-color: #222 !important;
+                color: #111 !important; opacity: 1 !important; filter: none !important;
+                background-color: #fff !important;
+                text-shadow: none !important; -webkit-text-fill-color: #111 !important;
                 -webkit-line-clamp: 999 !important; line-clamp: 999 !important;
                 max-height: none !important; height: auto !important;
                 overflow: visible !important; text-overflow: clip !important;
@@ -184,10 +185,17 @@
             }
             .answer-analysis-row, .answer-analysis { -webkit-box-orient: vertical !important; }
 
+            .answer-analysis *, .answer-analysis-row *, .answer-detail * {
+                color: #111 !important;
+                opacity: 1 !important;
+                -webkit-text-fill-color: #111 !important;
+                text-shadow: none !important;
+            }
+
             .deepseek-row .content,
             .answer-box-detail p, .answer-box-detail span {
-                color: #222 !important; opacity: 1 !important; filter: none !important;
-                -webkit-text-fill-color: #222 !important; user-select: text !important;
+                color: #111 !important; opacity: 1 !important; filter: none !important;
+                -webkit-text-fill-color: #111 !important; user-select: text !important;
                 white-space: normal !important;
                 word-break: break-word !important;
                 overflow-wrap: anywhere !important;
