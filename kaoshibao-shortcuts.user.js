@@ -165,13 +165,17 @@
             /* 隐藏干扰元素 */
             .header, .new-footer, .right-float-window, .advertisement, .ad-box,
             .vip-quanyi, .vip-tips, .breadcrumb, .lock-icon,
-            [class*="vip-mask"], .hide-ai-analysis, .hide-ai-analysis-text,
+            [class*="vip-mask"],
             .check-all-btn-row { display: none !important; }
 
             .app-main { padding-top: 20px !important; }
 
             /* 解锁解析内容样式（提升对比度，避免灰字看不清） */
-            .answer-analysis, .answer-analysis-row, .answer-detail {
+            .answer-analysis, .answer-analysis-row, .answer-detail,
+            .deepseek-row, .deepseek-row .content, .hide-ai-analysis, .hide-ai-analysis-text,
+            [class*="ai-analysis"], [class*="analysis-content"] {
+                display: block !important;
+                visibility: visible !important;
                 color: #111 !important; opacity: 1 !important; filter: none !important;
                 background-color: #fff !important;
                 text-shadow: none !important; -webkit-text-fill-color: #111 !important;
@@ -183,16 +187,22 @@
                 overflow-wrap: anywhere !important;
                 user-select: text !important;
             }
-            .answer-analysis-row, .answer-analysis { -webkit-box-orient: vertical !important; }
-
-            .answer-analysis *, .answer-analysis-row *, .answer-detail * {
-                color: #111 !important;
-                opacity: 1 !important;
-                -webkit-text-fill-color: #111 !important;
-                text-shadow: none !important;
+            .answer-analysis-row, .answer-analysis, .hide-ai-analysis, .hide-ai-analysis-text {
+                -webkit-box-orient: vertical !important;
             }
 
-            .deepseek-row .content,
+            .answer-analysis *, .answer-analysis-row *, .answer-detail *,
+            .deepseek-row *, .hide-ai-analysis *, .hide-ai-analysis-text *,
+            [class*="ai-analysis"] *, [class*="analysis-content"] * {
+                visibility: visible !important;
+                color: #111 !important;
+                opacity: 1 !important;
+                filter: none !important;
+                -webkit-text-fill-color: #111 !important;
+                text-shadow: none !important;
+                background-image: none !important;
+            }
+
             .answer-box-detail p, .answer-box-detail span {
                 color: #111 !important; opacity: 1 !important; filter: none !important;
                 -webkit-text-fill-color: #111 !important; user-select: text !important;
@@ -202,7 +212,9 @@
             }
 
             [class*="blur"] { display: none !important; pointer-events: none !important; }
-            .hide-height { height: auto !important; max-height: none !important; overflow: visible !important; }
+            .hide-height, .hide-ai-analysis, .hide-ai-analysis-text {
+                height: auto !important; max-height: none !important; overflow: visible !important;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -226,7 +238,7 @@
         // 移除 VIP 相关遮罩和按钮
         const selectorsToRemove = [
             '.vip-quanyi', '.vip-tips', '.vip-mask', '.open-vip-btn',
-            '[class*="pay"]', '.hide-ai-analysis', '.hide-ai-analysis-text', '.check-all-btn-row'
+            '[class*="pay"]', '.check-all-btn-row'
         ];
         selectorsToRemove.forEach(sel => {
             document.querySelectorAll(sel).forEach(el => el.remove());
@@ -249,18 +261,7 @@
             }
         }
 
-        // 移除"深度解题"相关元素
-        const deepNodes = document.evaluate(
-            "//*[contains(text(), '深度解题')]",
-            document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
-        );
-        for (let i = 0; i < deepNodes.snapshotLength; i++) {
-            const el = deepNodes.snapshotItem(i);
-            const wrapper = el.closest('.deepseek-row') || el.closest('.answer-box-detail > div') || el.parentElement;
-            if (wrapper && !wrapper.classList.contains('app-main')) {
-                wrapper.remove();
-            }
-        }
+        // 保留 AI/深度解题内容，只通过 CSS 提升可见度；不要移除 deepseek-row。
 
         // 清理绝对定位的 VIP 图标
         document.querySelectorAll('i, img, svg').forEach(icon => {
@@ -337,31 +338,26 @@
     });
 
     // 键盘事件监听
-    document.addEventListener('keydown', (e) => {
-        // 输入框内不处理快捷键
-        const tag = document.activeElement.tagName;
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || document.activeElement.isContentEditable) {
-            return;
-        }
+    const isTypingTarget = (target) => {
+        const element = target instanceof Element ? target : document.activeElement;
+        const tag = element?.tagName;
+        return ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || element?.isContentEditable;
+    };
 
-        const key = e.key;
+    const getShortcutAction = (key) => {
         const keyMap = userConfig.keys;
-        let handled = false;
 
         // 选项快捷键 (A-Z)
         for (let i = 0; i < 26; i++) {
             const char = String.fromCharCode(65 + i);
             if (keyMap[`op_${char}`] === key) {
-                selectOption(char);
-                handled = true;
-                break;
+                return () => selectOption(char);
             }
         }
 
         // 功能快捷键
-        if (!handled) {
-            if (key === keyMap.submit) {
-                handled = true;
+        if (key === keyMap.submit) {
+            return () => {
                 if (!userConfig.features.smartEnter) {
                     clickText('提交答案');
                 } else if (clickText('提交答案')) {
@@ -372,28 +368,70 @@
                 } else if (!clickText('下一题')) {
                     clickText('交卷');
                 }
-            } else if (key === keyMap.prev && userConfig.features.scriptNav) {
-                handled = true;
+            };
+        }
+        if (key === keyMap.prev && userConfig.features.scriptNav) {
+            return () => {
                 showKeyIndicator('←');
                 clickText('上一题');
-            } else if (key === keyMap.next && userConfig.features.scriptNav) {
-                handled = true;
+            };
+        }
+        if (key === keyMap.next && userConfig.features.scriptNav) {
+            return () => {
                 showKeyIndicator('→');
                 clickText('下一题');
-            } else if (key === keyMap.forceUnlock && userConfig.features.vipUnlock) {
-                handled = true;
+            };
+        }
+        if (key === keyMap.forceUnlock && userConfig.features.vipUnlock) {
+            return () => {
                 unlockVIP();
                 applyCleanUI();
                 showKeyIndicator('🔓');
-            }
+            };
         }
 
-        if (handled) {
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            e.preventDefault();
+        return null;
+    };
+
+    const stopShortcutEvent = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+    };
+
+    // 记录脚本已处理的按键，拦截同一次按键的 keyup，避免页面自身快捷键再次翻页。
+    const handledKeyUntil = new Map();
+
+    const handleShortcutKeydown = (e) => {
+        if (isTypingTarget(e.target)) return;
+
+        const action = getShortcutAction(e.key);
+        if (!action) return;
+
+        // 长按方向键时浏览器会产生 repeat 事件；只响应第一次，避免一次按键连续翻多题。
+        if (e.repeat) {
+            stopShortcutEvent(e);
+            return;
         }
-    }, true);
+
+        handledKeyUntil.set(e.key, Date.now() + 800);
+        stopShortcutEvent(e);
+        action();
+    };
+
+    const handleShortcutKeyup = (e) => {
+        const suppressUntil = handledKeyUntil.get(e.key);
+        if (!suppressUntil) return;
+
+        if (Date.now() <= suppressUntil) {
+            stopShortcutEvent(e);
+        }
+        handledKeyUntil.delete(e.key);
+    };
+
+    // 在 window 捕获阶段拦截，优先阻止考试宝页面自己的方向键监听，防止脚本翻页 + 页面翻页叠加。
+    window.addEventListener('keydown', handleShortcutKeydown, true);
+    window.addEventListener('keyup', handleShortcutKeyup, true);
 
     /* ========================================
      * 设置面板 UI
